@@ -10,9 +10,6 @@ In addition, we use other tools and languages, such as [Python via the Anaconda 
 ## Installation Guide
 This document walks you through installing four tools and wiring them together so you can launch **Julia**, **Jupyter**, and **VS Code** from your terminal on **Windows**, **macOS**, or **Linux**. Follow the steps in order, then run the “Smoke test” at the end.
 
-> **Accuracy note.** The steps below have been double‑checked against current tooling: macOS uses **zsh** by default (not Bash), Windows instructions use the correct **winget** ID for **juliaup**, and VS Code extension IDs/CLI commands are verified.
-
-
 
 ### Before you start
 
