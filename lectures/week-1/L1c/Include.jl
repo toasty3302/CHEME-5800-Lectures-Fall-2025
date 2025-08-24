@@ -12,5 +12,8 @@ end
 
 # load external packages -
 using VLDataScienceMachineLearningPackage
-using UnicodePlots
+using Plots
 using Colors
+using Interact
+# using WebIO
+# WebIO.install_jupyter_nbextension();
