@@ -15,5 +15,3 @@ using VLDataScienceMachineLearningPackage
 using Plots
 using Colors
 using Interact
-# using WebIO
-# WebIO.install_jupyter_nbextension();
