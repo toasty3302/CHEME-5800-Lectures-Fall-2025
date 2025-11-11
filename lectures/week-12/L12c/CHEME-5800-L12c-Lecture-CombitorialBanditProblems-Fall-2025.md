@@ -1,0 +1,171 @@
+# L12c: Bernoulli and Combinatorial Bandits
+In this lecture, we continue our exploration of multi-armed bandit problems, focusing on Bernoulli and combinatorial bandits. We will discuss the theoretical foundations, algorithms, and practical applications of these bandit models.
+
+> __Learning Objectives:__
+> 
+> By the end of this lecture, you should be able to:
+>
+> * __Bernoulli Bandits with Bayesian Modeling__: Understand how agents model binary reward distributions using the Bernoulli distribution and Beta priors. Learn how epsilon-greedy and Thompson sampling algorithms update beliefs about success probabilities by tracking successes and failures for each arm.
+> * __Combinatorial Action Spaces__: Recognize how combinatorial bandits extend single-arm selection to choosing subsets of items, where each arm represents a binary vector indicating which items are selected. Understand how the action space grows exponentially as $N = 2^K$ for $K$ items, creating challenges for exploration and exploitation.
+> * __Combinatorial Epsilon-Greedy Algorithm__: Apply the epsilon-greedy approach to exponential action spaces by maintaining separate reward estimates for each combination. Learn how weighted online averaging updates reward estimates while the learning rate decreases over time to stabilize convergence.
+
+Let's get started!
+___
+
+## Binary Bernoulli Bandit Problem
+The binary Bernoulli bandit problem is a special case of the stochastic bandit problem where the reward for taking action $a\in\mathcal{A}$ is binary $r_{t} = \left\{0,1\right\}$. The probability of getting reward `1` is unknown and needs to be estimated. The goal is to maximize the expected reward by selecting the best action at each time step.
+
+* _Difference_: Unlike a completely general stochastic bandit problem, the binary Bernoulli bandit problem assumes the _agent models how the world responds_ using a (deceptively) simple reward distribution, [the Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution). Thus, _the agent has a model of the world_ (which is so super cool!).
+* _Binary_: The reward distribution is binary. However, this is not as limiting as it may first appear. The experiment represented by the action $a$ can be a complex statement or function that _evaluates_ to a boolean value. Thus, we can model many complex scenarios that evaluate to `true` or `false`.
+
+The Bernoulli distribution is a discrete probability distribution that returns a value of `1` with probability $p$ and value `0` with probability $1-p$. The probability mass function of the Bernoulli distribution is given by:
+$$
+\begin{equation*}
+\texttt{Bern}(r; p) = \begin{cases}
+p & \text{if } r = 1,\\
+1-p & \text{if } r = 0.
+\end{cases}
+\end{equation*}
+$$
+where $r\in\left\{0,1\right\}$ is the reward and $p\in[0,1]$ is the probability of getting reward `r = 1`. The expected reward of $X\sim\texttt{Bern}(r;p)$ is given by: $\mathbb{E}[X] = p$ and the variance is given by: $\text{Var}[X] = p(1-p)$. 
+* _Ready to get your mind blown_? Ok, so here is the _cool part_: the agent models the parameter $p$ using a _probability distribution_ (e.g., [a Beta distribution](https://en.wikipedia.org/wiki/Beta_distribution)) and updates this distribution as it observes rewards. This is the essence of the [Bayesian approach to bandit problems](https://onlinelibrary.wiley.com/doi/10.1002/asmb.874).
+
+Yeah. That's cool. But how do we solve this problem?
+
+### $\epsilon$-Greedy Binary Bernoulli Bandit
+The $\epsilon$-greedy algorithm is simple and effective for solving the binary Bernoulli bandit problem.
+
+The algorithm selects the _best action_ with probability $1-\epsilon$ and selects a random action with probability $\epsilon$. The pseudocode for the $\epsilon$-greedy algorithm is given below [(a more detailed version can be found here)](https://github.com/varnerlab/CHEME-5820-Lectures-Spring-2025/blob/main/lectures/week-7/L7c/docs/BBBPcode.pdf):
+
+#### Pseudo-code
+The agent has $K$ arms (choices), $\mathcal{A} = \left\{1,2,\dots,K\right\}$, and the total number of rounds is $T\gg{K}$. Initialize the parameters of [the Beta distribution](https://en.wikipedia.org/wiki/Beta_distribution) for each arm $a\in\mathcal{A}$ to $\alpha_{a} = 1$ and $\beta_{a} = 1$. The agent uses the following algorithm to choose which arm to pull (which action to take) during each round:
+
+For $t = 1,2,\dots,T$:
+1. _Initialize_: Roll a random number $p\in\left[0,1\right]$ and compute a threshold $\epsilon_{t}={t^{-1/3}}\cdot\left(K\cdot\log(t)\right)^{1/3}$.
+2. _Exploration_: If $p\leq\epsilon_{t}$, choose a random (uniform) arm $a_{t}\in\mathcal{A}$. Execute the action $a_{t}$ and receive a reward $r_{t} = \left\{0,1\right\}$ from the _adversary_ (nature).
+3. _Exploitation_: Else if $p>\epsilon_{t}$, choose action $a^{\star}_{t}$, the action with the _highest expected probability of success_ (greedy choice), using the agent's model of the world. The highest probability action is: $a^{\star} = \arg\max_{a\in\mathcal{A}}\left\{\frac{\alpha(a) + \mathbf{S}(a)}{\alpha(a) + \beta(a) + \mathbf{S}(a) + \mathbf{F}(a)}\right\}$ where $\mathbf{S}(a)$ and $\mathbf{F}(a)$ are the number of successes and failures for arm $a$. Execute the action $a^{\star}_{t}$ and receive a reward $r^{\star}_{t}\in\left\{0,1\right\}$ from the _adversary_ (nature).
+4. Update the success $\mathbf{S}(a^{\star})$ and failure $\mathbf{F}(a^{\star})$ arrays for the chosen arm $a^{\star}_{t}$ using the reward $r^{\star}_{t}$:
+$$
+\begin{equation*}
+S(a^{\star}_{t}) \gets S(a^{\star}_{t}) + r^{\star}_{t},\quad F(a^{\star}_{t}) \gets F(a^{\star}_{t}) + (1-r^{\star}_{t})
+\end{equation*}
+$$
+
+Using a model of the world allows the agent to make decisions about which actions to take. This is the essence of the Bayesian approach to bandit problems. The agent has a model of the likely reward distribution for _each_ action and uses this model to select the best action at each time step.
+
+### Thompson Sampling Binary Bernoulli Bandit
+An alternative Bayesian approach is Thompson sampling, which samples from the posterior distribution to make decisions.
+
+> The algorithm selects the _best action_ by sampling from the posterior distribution for each arm and choosing the one with the highest sample.
+
+#### Pseudo-code
+The agent has $K$ arms (choices), $\mathcal{A} = \left\{1,2,\dots,K\right\}$, and the total number of rounds is $T\gg{K}$. Initialize the parameters of [the Beta distribution](https://en.wikipedia.org/wiki/Beta_distribution) for each arm $a\in\mathcal{A}$ to $\alpha_{a} = 1$ and $\beta_{a} = 1$. The agent uses the following algorithm to choose which arm to pull (which action to take) during each round:
+
+For $t = 1,2,\dots,T$:
+1. Sample from the posterior for each arm: $\mathbf{p}\gets\left\{\text{Beta}(\alpha(a)+\mathbf{S}(a),\beta(a)+\mathbf{F}(a))\mid\forall{a}\in\mathcal{A}\right\}$ where $\mathbf{S}(a)$ and $\mathbf{F}(a)$ are the number of successes and failures for arm $a$.
+2. Choose the action with the highest sampled probability: $a^{\star} = \arg\max_{a\in\mathcal{A}}\left\{\mathbf{p}(a)\right\}$.
+3. Execute the action $a^{\star}_{t}$ and receive a reward $r^{\star}_{t}\in\left\{0,1\right\}$ from the _adversary_ (nature).
+4. Update the success $\mathbf{S}(a^{\star})$ and failure $\mathbf{F}(a^{\star})$ arrays for the chosen arm $a^{\star}_{t}$ using the reward $r^{\star}_{t}$:
+$$
+\begin{equation*}
+S(a^{\star}_{t}) \gets S(a^{\star}_{t}) + r^{\star}_{t},\quad F(a^{\star}_{t}) \gets F(a^{\star}_{t}) + (1-r^{\star}_{t})
+\end{equation*}
+$$
+
+Thompson sampling is fully Bayesian and often performs better than ε-greedy in practice. 
+
+> Let's think about a few things here:
+> 
+> * __Context:__ If we step back, some decisions depend upon context. For example, understanding where we are on the planet would be handy if we were predicting the weather. Predicting product demand might depend upon the season, or determining which drugs to prescribe would depend upon the indication. Thus, _context_ is essential.
+> * __Combinatorial Actions:__ In many scenarios, we need to select multiple actions simultaneously. For example, in drug discovery, we might want to test combinations of compounds. In marketing, we might want to select a set of advertisements to display. This leads us to the concept of combinatorial bandits, where the agent selects a subset of actions at each time step.
+
+How do we handle these more complex scenarios? 
+
+___
+
+## Combinatorial Bandit Problems
+In combinatorial bandit problems, the agent selects a subset of actions (a combination) at each time step. This is more complex than selecting a single action, as the number of possible combinations grows exponentially with the number of actions.
+
+> __Difference with Standard Bandits?__
+> 
+> A combinatorial bandit problem extends the binary Bernoulli bandit framework to scenarios where decisions involve selecting __combinations of items__ rather than choosing a single arm. Each decision represents a configuration or subset of available options, making the action space combinatorial in nature.
+
+In the __binary combinatorial bandit problem__, we have $K$ items, and each arm corresponds to a binary vector $\mathbf{a}\in\left\{0,1\right\}^{K}$ indicating which items are selected (1) or not selected (0). This leads to $N = 2^{K}$ possible arms to explore, where each arm represents a unique combination of the $K$ items.
+
+For each round $t = 1,2,\dots,T$:
+1. The agent selects an arm $\mathbf{a}_{t}\in\mathcal{A}$, where $\mathcal{A} = \left\{0,1\right\}^{K}$ is the set of all possible binary vectors of length $K$.
+2. The agent receives a reward $r_{t}\in\mathbb{R}$ sampled from some (unknown) distribution associated with arm $\mathbf{a}_{t}$. This distribution is known by the world (nature) but unknown to the agent.
+3. The agent updates its belief about the expected reward for the selected arm. $\texttt{GOTO}$ 1.
+
+The goal is to maximize cumulative reward over $T$ rounds by learning which combinations of items yield the highest expected reward.
+
+> __Key Challenges__
+> 
+> The combinatorial bandit problem introduces several challenges compared to the standard multi-armed bandit:
+> * __Exponential growth__: With $K$ items, the number of possible arms grows as $N = 2^{K}$. Even modest values of $K$ lead to enormous action spaces. For example, with $K=10$ items, there are $N=1024$ arms to explore.
+> * __Sparse exploration__: The agent may never visit most arms during the learning process. This makes learning difficult because many combinations remain unexplored.
+> * __Structure exploitation__: Unlike the standard bandit problem, combinatorial bandits often exhibit structure. The reward for a combination may depend on interactions between items, not just individual item contributions. Exploiting this structure can improve learning efficiency.
+
+The algorithms we developed for standard bandits (Explore-First, Epsilon-Greedy, UCB1, Thompson Sampling) can be adapted to the combinatorial setting. However, the exponential growth of the action space requires careful consideration of exploration strategies and computational efficiency.
+
+___
+
+
+### Combinatorial Epsilon-Greedy Algorithm
+The combinatorial epsilon-greedy algorithm extends the standard epsilon-greedy approach to handle the exponential action space of combinatorial bandits. The key modification is that each arm is represented as a binary vector $\mathbf{a}\in\left\{0,1\right\}^{K}$, and the agent maintains average reward estimates for each of the $N = 2^{K}$ possible combinations.
+
+#### Pseudo-code
+The agent has $K$ items, leading to $N = 2^{K}$ possible arms (combinations), and the total number of rounds is $T$. Each arm $i\in\left\{1,2,\dots,N\right\}$ corresponds to a binary vector $\mathbf{a}\in\left\{0,1\right\}^{K}$.
+
+_Initialization_: For each arm $i\in\left\{1,2,\dots,N\right\}$:
+1. Generate the binary representation $\mathbf{a}_{i}$ using $i$ (e.g., $\mathbf{a}_{i} = \text{digits}(i, \text{base}=2, \text{pad}=K)$).
+2. Execute action $\mathbf{a}_{i}$ and receive reward $r_{i}$ from the world.
+3. Initialize the average reward estimate: $\mu_{i} \gets \mu_{0,i}\cdot\left(1-\frac{1}{T}\right) + \frac{1}{T}\cdot r_{i}$, where $\mu_{0,i}$ is an initial guess for arm $i$.
+
+For rounds $t = 2,3,\dots,T$:
+1. _Compute threshold_: Calculate $\epsilon_{t} = \frac{1}{t^{1/3}}\cdot\left(\log(K\cdot t)\right)^{1/3}$.
+2. _Initialize_: Roll a random number $p\in\left[0,1\right]$.
+3. _Exploration_: If $p\leq\epsilon_{t}$, randomly select an arm index $i\in\left\{1,2,\dots,N\right\}$ uniformly.
+4. _Exploitation_: Else if $p>\epsilon_{t}$, choose the arm with the highest average reward: $i = \arg\max_{j\in\{1,\dots,N\}}\mu_{j}$.
+5. _Generate action_: Convert arm index $i$ to binary vector $\mathbf{a}_{t} = \text{digits}(i, \text{base}=2, \text{pad}=K)$.
+6. _Execute and observe_: Execute action $\mathbf{a}_{t}$ and receive reward $r_{t}$ from the world.
+7. _Update estimate_: Update the average reward for arm $i$ using a weighted online average: $\mu_{i} \gets \mu_{i} + \frac{1}{t}\cdot\left(r_{t} - \mu_{i}\right)$.
+
+__Output__: Return the history of rewards, final average reward estimates $\mu$, and action history.
+
+> __Learning Rate Choice:__
+>
+> The learning rate $\alpha_t = \frac{1}{t}$ decreases over time. Each new observation receives less weight as more data is collected, while early observations retain their influence on the running average. This choice satisfies the Robbins-Monro conditions for stochastic approximation: $\sum_{t=1}^{\infty}\alpha_t = \infty$ and $\sum_{t=1}^{\infty}\alpha_t^2 < \infty$, which guarantee that the average converges to the true expected reward as the number of observations increases [1]. Alternative learning rates include:
+> * **Sample mean**: $\alpha = \frac{1}{n_i}$ where $n_i$ is the number of times arm $i$ has been pulled. This gives equal weight to all observations of arm $i$ and converges to the true sample mean.
+> * **Constant rate**: $\alpha = c$ for some fixed $c \in (0,1)$. This gives more weight to recent observations, allowing the algorithm to adapt to non-stationary environments.
+> * **Polynomial decay**: $\alpha_t = \frac{1}{t^\beta}$ for $\beta \in (0,1]$. This balances between fast early learning and stable convergence.
+>
+> The choice of learning rate affects how quickly the estimates converge and whether they converge to the true expected reward. The $\frac{1}{t}$ schedule used here provides theoretical convergence guarantees while being simple to implement [1,2].
+
+The combinatorial epsilon-greedy algorithm balances exploration and exploitation in the exponential action space by maintaining separate reward estimates for each combination. The weighted online average update allows the agent to adapt its estimates as it gathers more information, with the learning rate decreasing over time to stabilize the estimates.
+
+___
+
+## Lab
+In lab `L12d`, we will explore combinatorial bandit problems by solving the Flower Bouquet Problem using the combinatorial epsilon-greedy algorithm. This problem involves selecting combinations of flowers to create bouquets that maximize customer satisfaction, modeled using a Cobb-Douglas utility function. 
+
+## Summary
+
+In this lecture, we explored Bernoulli and combinatorial bandits, extending standard bandit algorithms to handle binary rewards and exponential action spaces:
+
+> __Key takeaways:__
+>
+> * **Bayesian approach to binary rewards**: Bernoulli bandits model binary outcomes using Beta distributions as priors for success probabilities, allowing agents to maintain and update probabilistic beliefs about each arm's performance. Epsilon-greedy and Thompson sampling algorithms leverage these models to balance exploration and exploitation by tracking successes and failures.
+> * **Exponential growth of combinatorial action spaces**: Combinatorial bandits select subsets of items rather than single arms, with each arm represented as a binary vector indicating which items are chosen. The action space grows exponentially with the number of items, doubling in size for each additional item, making exhaustive exploration impossible even for modest problem sizes.
+> * **Adapting epsilon-greedy to combinations**: The combinatorial epsilon-greedy algorithm maintains separate average reward estimates for each combination and uses weighted online averaging to update beliefs. The time-varying learning rate balances rapid initial learning with stable long-term estimates, enabling the algorithm to handle exponential action spaces.
+
+These extensions enable bandit algorithms to solve problems requiring binary outcome modeling and subset selection, with applications in recommendation systems, portfolio optimization, and experimental design.
+___
+
+## References
+
+1. Robbins, H., & Monro, S. (1951). A stochastic approximation method. *Annals of Mathematical Statistics*, 22(3), 400-407. [doi:10.1214/aoms/1177729586](https://doi.org/10.1214/aoms/1177729586)
+
+2. Sutton, R. S., & Barto, A. G. (2018). *Reinforcement Learning: An Introduction* (2nd ed.). MIT Press. Available online at [incompleteideas.net/book/the-book-2nd.html](https://incompleteideas.net/book/the-book-2nd.html)
+
+___
